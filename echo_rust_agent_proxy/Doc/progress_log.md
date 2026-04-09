@@ -1,1 +1,71 @@
- 
+  # Echo Rust Agent Proxy - Progress Log (v5)
+
+**Project Phase:** Echo project v5 – Hybrid Tool Calling agent proxy
+**Started From:** Reusing core logic from Echo_tmux (v3)  
+**Status:** In active testing – Functional but still iterating
+
+## Phase Overview
+This version builds directly on the working Rust tmux implementation from **v3 (Echo_tmux)**.  
+We kept the proven parts (tmux session management, marker-based output capture, hybrid COMMAND:/SESSION:NAME parsing) and added the missing proxy-like pieces (summarizer integration, cleaner context handling, proper logging) without rebuilding everything from scratch.
+
+### Key Reuse from v3
+- tmux session creation/reuse logic (`start_or_reuse_session`)
+- Marker-based output capture (`===ECHO_START_` / `===ECHO_END_` timestamps)
+- Command execution in named tmux sessions with `send-keys` + `capture-pane`
+- Basic session cleanup and error handling
+- Hybrid tool calling detection (COMMAND: and SESSION:NAME)
+
+### What Was Added / Changed in v5
+
+**Day 1 – Foundation Reuse**
+- Started with the clean v3 `sessions.rs` as base
+- Ported the main chat loop and reqwest client from earlier Rust COMMAND version
+- Added modular structure (`main.rs` as orchestrator, `sessions.rs`, `commands.rs`, `log.rs`, `safety.rs`)
+- Re-integrated the safety deny list (15-item list, checked before every execution)
+- Fixed compilation issues from splitting the monolithic file (unused code, Result generics, imports)
+
+**Day 2 – Summarizer Integration**
+- Added call to small summarizer model on port 8082 after clean marker capture
+- Implemented double-summarization flow: raw tmux output → summarizer → tool message → Echo
+- Tuned summarizer prompt for high-signal output (avoided bullet-point over-achievement)
+- Confirmed SESSION:NAME works for simple commands (`whoami`, `ls -la`, `ifconfig`)
+
+**Day 3 – Logging & Cleanup**
+- JSONL logging in ShareGPT format (user/assistant/tool messages) – already captured 20-30+ examples of when/why to use SESSION vs COMMAND
+- Removed or commented unused dead code (old full COMMAND path kept for hybrid support)
+- Improved context stripping to reduce repeated tool call issues
+- Added proper error messages when deny list blocks a command
+
+### Current Capabilities (v5)
+- **COMMAND:** method – Stable, one-shot commands, no summarizer
+[Command](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/sommand_ls_-la.png)
+- **SESSION:NAME** method – Works for persistent tmux sessions (bash, ifconfig, basic msfconsole)
+[Session](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/ifconfig.png)
+- Safety deny list – Active and enforced
+- Clean output capture via markers – Only new output returned (big improvement over full session history)
+  Capture](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/multiple_summarized.png)
+- Summarizer integration – Produces usable high-signal summaries for noisy commands
+[Problems](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/summarization_problems.png)
+[Over_summarized](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/over_summarized.png)
+- JSONL training data generation – Clean logs ready for next LoRA
+[Needs training](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/llm_being_difficult.png)
+- 
+
+### Known Limitations (Honest)
+- Double-summarization still occurs (summarizer → Echo). Helpful for long/noisy output, sometimes excessive for short commands.
+- SESSION method still needs more training examples for complex tools (full msfconsole workflows).
+[Difficulty](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/llm_being_difficult.png)
+- No SQLite database yet (JSONL sufficient for current training needs).
+- Context pollution / repeated tool calls can still happen occasionally – being tuned.
+
+### Next Planned Steps
+- Further refine summarizer prompt and context stripping
+- Collect more targeted training examples (SESSION vs COMMAND decision making)
+- Test longer msfconsole sessions
+- Optional: Add lightweight SQLite audit logging if needed for repo completeness
+
+**Overall Assessment:**  
+v5 is a solid evolution from v3. We reused the best working pieces, added the summarizer and logging cleanly, and kept the code modular. It is **in testing** — functional for daily use and already producing good training data, but not yet perfect for heavy red-team workflows.
+
+This log will be updated as we iterate.
+
