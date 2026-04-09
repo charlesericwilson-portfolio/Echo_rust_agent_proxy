@@ -25,3 +25,38 @@ flowchart TD
     style E fill:#facc15,stroke:#854d0e
     style K fill:#c084fc,stroke:#6b21a8
 ```
+## Echo Rust Wrapper v5 (In Testing)
+
+**Current Version:** Rust v5 (Python proxy was v4)
+
+This is the active development version of **Echo** — a lightweight, local red-team LLM agent wrapper written in Rust.
+
+### What it does
+- Supports **hybrid raw-text tool calling**:
+  - `COMMAND: <command>` for simple one-shot shell commands
+  - `SESSION:NAME <command>` for persistent tmux sessions (ideal for msfconsole, long-running shells, etc.)
+- Automatic tmux session creation/reuse
+- Marker-based clean output capture (only returns new command output, not full session history)
+- Safety deny list (blocks dangerous commands before execution)
+- JSONL logging in ShareGPT format (already capturing training examples of when/why to use SESSION vs COMMAND)
+- Fast blocking HTTP client talking to your local llama.cpp servers
+
+### Current Status – In Active Testing
+- COMMAND method is stable and reliable
+- SESSION method works well for simple commands and basic persistence
+- Output capture + summarizer flow is functional (double-summarization occurs but produces usable high-signal results for noisy commands)
+- Deny list is active
+- Logging is working and generating clean training data
+- For build details go to [Doc/progress_log.md]()
+
+**Not yet production-ready.** Persistent sessions with complex tools (full msfconsole workflows) are still being tuned. Context management and summarizer behavior continue to be refined. Database integration for auditing still to come.
+
+### Quick Start
+```bash
+# 1. Make sure your llama.cpp servers are running
+#    - Main model: port 8080
+#    - Summarizer (small model): port 8082
+
+# 2. Build and run
+cargo build --release
+./target/release/echo_rust_wrapper
