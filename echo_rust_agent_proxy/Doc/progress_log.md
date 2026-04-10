@@ -38,22 +38,27 @@ We kept the proven parts (tmux session management, marker-based output capture, 
 
 ### Current Capabilities (v5)
 - **COMMAND:** method – Stable, one-shot commands, no summarizer
+
 [Command](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/sommand_ls_-la.png)
 
 - **SESSION:NAME** method – Works for persistent tmux sessions (bash, ifconfig, basic msfconsole)
+
 [Session](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/ifconfig.png)
 
 - Safety deny list – Active and enforced
 
 - Clean output capture via markers – Only new output returned (big improvement over full session history)
+
 [Capture](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/multiple_summarized.png)
 
 - Summarizer integration – Produces usable high-signal summaries for noisy commands
+
 [Problems](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/summarization_problems.png)
 
 [Over_summarized](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/over_summarized.png)
 
 - JSONL training data generation – Clean logs ready for next LoRA
+
 [Needs training](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/llm_being_difficult.png)
 
 [msfconsole](../screenshots/msf_help.png) 
@@ -61,7 +66,9 @@ We kept the proven parts (tmux session management, marker-based output capture, 
 ### Known Limitations (Honest)
 - Double-summarization still occurs (summarizer → Echo). Helpful for long/noisy output, sometimes excessive for short commands.
 - SESSION method still needs more training examples for complex tools (full msfconsole workflows).
+
 [Difficulty](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/llm_being_difficult.png)
+
 - No SQLite database yet (JSONL sufficient for current training needs).
 - Context pollution / repeated tool calls can still happen occasionally – being tuned.
 
