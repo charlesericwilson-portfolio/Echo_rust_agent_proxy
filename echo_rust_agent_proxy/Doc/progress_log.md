@@ -61,6 +61,8 @@ We kept the proven parts (tmux session management, marker-based output capture, 
 
 [Needs training](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/llm_being_difficult.png)
 
+- Sucessful msf help in persistent tmux session.
+
 [msfconsole](../screenshots/msf_help.png) 
 
 ### Known Limitations (Honest)
