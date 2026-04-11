@@ -78,4 +78,4 @@ This is the active development version of **Echo** — a lightweight, local red-
 ### Status as of April 11, 2026
 This repo had 123 unique cloners + 14 YouTube refferals (in 2 days)
 
-Next steps: Building datasets and adding database support soon.
+Next steps: Building datasets and adding database support then switching to v4 to add functionality learned from this project.
