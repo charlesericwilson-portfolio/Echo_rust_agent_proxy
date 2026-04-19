@@ -48,7 +48,7 @@ This is the active development version of **Echo** — a lightweight, local red-
 - Output capture + summarizer flow is functional (double-summarization occurs but produces usable high-signal results for noisy commands)
 - Deny list is active
 - Logging is working and generating clean training data
-- For build details go to [Doc/progress_log.md]()
+- For build details and screenshots go to [Doc/progress_log.md](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/Doc/progress_log.md)
 
 **Not yet production-ready.** Persistent sessions with complex tools (full msfconsole workflows) are still being tuned. Context management and summarizer behavior continue to be refined. Database integration for auditing still to come.
 
