@@ -75,7 +75,4 @@ This is the active development version of **Echo** — a lightweight, local red-
   cargo build --release
   ./target/release/echo_rust_wrapper
   ```
-### Status as of April 11, 2026
-This repo had 123 unique cloners + 14 YouTube refferals (in 2 days)
-
 Next steps: Building datasets and adding database support. Finetuning the base model check it out [Echo_training_project](https://github.com/charlesericwilson-portfolio/Echo_training_project)
