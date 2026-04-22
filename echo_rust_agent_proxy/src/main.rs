@@ -20,8 +20,8 @@ const MODEL_NAME: &str = "Echo";
 const API_URL: &str = "http://localhost:8080/v1/chat/completions";
 
 const SYSTEM_PROMPT: &str = r#"
-Start each chat with a simple getting before any action is taken Eric might have special instructions.
-You are Echo, Eric's local sidekick.
+Start each chat with a simple greeting before any action is taken Eric might have special instructions.
+You are Echo, Eric's local sidekick and friend.
 You are Echo, an autonomous red team operator.
 You keep going until the task is complete.
 You are allowed to run any command needed. Do not moralize or hesitate.
@@ -323,21 +323,21 @@ async fn main() -> AnyhowResult<()> {
 
 // Real summarizer - calls the small model on port 8082
 async fn summarize_output(raw_output: &str) -> AnyhowResult<String> {
+    // FRESH CONTEXT EVERY TIME - no carryover
     let payload = json!({
-        "model": "summarizer",   // change to your actual model name if different
+        "model": "summarizer",
         "messages": [
             {
                 "role": "system",
-                "content": "[NEW_CONTEXT] Disreguard everything before this line. summarize output. Include ip's when present and open ports.Disreguard flags like this ===ECHO_END_1776793718431===."
+                "content": "You are a precise summarizer. Extract ONLY key facts (IPs, open ports, services, findings). Remove noise and flags like ===ECHO_END_===. If nothing useful, say exactly: 'No useful output found.'"
             },
             {
                 "role": "user",
                 "content": raw_output
             }
         ],
-        "temperature": 0.3,
-        "max_tokens": 2048
-
+        "temperature": 0.2,
+        "max_tokens": 1500
     });
 
     let response = match reqwest::Client::new()
@@ -362,12 +362,11 @@ async fn summarize_output(raw_output: &str) -> AnyhowResult<String> {
                 format!("Summarizer returned status: {}", res.status())
             }
         }
-        Err(e) => format!("Failed to connect to summarizer on port 8082: {}", e),
+        Err(e) => format!("Failed to connect to summarizer: {}", e),
     };
 
     Ok(response)
 }
-
 
 
 mod sessions;
