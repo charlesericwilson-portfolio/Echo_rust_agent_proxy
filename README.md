@@ -42,6 +42,7 @@ This is the active development version of **Echo** — a lightweight, local red-
 - JSONL logging in ShareGPT format (already capturing training examples of when/why to use SESSION vs COMMAND)
 - Fast blocking HTTP client talking to your local llama.cpp servers
 - Sqlite database support for tool logging.
+- Auto summarization of context at 50K tokens.
 
 ### Current Status – In Active Testing
 - COMMAND method is stable and reliable
