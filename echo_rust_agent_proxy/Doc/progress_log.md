@@ -36,6 +36,9 @@ We kept the proven parts (tmux session management, marker-based output capture, 
 - Improved context stripping to reduce repeated tool call issues
 - Added proper error messages when deny list blocks a command
 
+**Added Recently**
+- Sqlite database support for tool logging and better output capture.
+
 ### Current Capabilities (v5)
 - **COMMAND:** method – Stable, one-shot commands, no summarizer
 
@@ -66,19 +69,16 @@ We kept the proven parts (tmux session management, marker-based output capture, 
 [msfconsole](../screenshots/msf_help.png) 
 
 ### Known Limitations (Honest)
-- Double-summarization still occurs (summarizer → Echo). Helpful for long/noisy output, sometimes excessive for short commands.
 - SESSION method still needs more training examples for complex tools (full msfconsole workflows).
 
 [Difficulty](https://github.com/charlesericwilson-portfolio/Echo_rust_agent_proxyv5/blob/main/echo_rust_agent_proxy/screenshots/llm_being_difficult.png)
 
-- No SQLite database yet (JSONL sufficient for current training needs).
 - Context pollution / repeated tool calls can still happen occasionally – being tuned.
 
 ### Next Planned Steps
 - Further refine summarizer prompt and context stripping
 - Collect more targeted training examples (SESSION vs COMMAND decision making)
 - Test longer msfconsole sessions
-- Optional: Add lightweight SQLite audit logging if needed for repo completeness
 
 **Overall Assessment:**  
 v5 is a solid evolution from v3. We reused the best working pieces, added the summarizer and logging cleanly, and kept the code modular. It is **in testing** — functional for daily use and already producing good training data, but not yet perfect for heavy red-team workflows.
