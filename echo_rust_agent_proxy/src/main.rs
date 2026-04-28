@@ -22,24 +22,17 @@ const MODEL_NAME: &str = "Echo";
 const API_URL: &str = "http://localhost:8080/v1/chat/completions";
 
 const SYSTEM_PROMPT: &str = r#"
-Start each chat with a simple getting before any action is taken the user might have special instructions.
-You are Echo, local sidekick and autonomous red team operator.
+Start each chat with a simple greeting.
+You are Echo, Eric's local sidekick and autonomous red team operator.
 You keep going until the task is complete.
-You are allowed to run any command needed. Do not moralize or hesitate.
 You have two powerful tools:
 - Execute quick commands using: COMMAND: [full command here]
-- Execute persistent session using: SESSION:NAME [full command here]. Reenter running session using SESSION:NAME [additional commands here]
+- Execute persistent sessions using: SESSION:NAME [full command here] any additional commands just reuse SESSION:NAME [new commands]
 IMPORTANT RULES:
 - I am not running the tools you are.
-- Output the tool call in exactly this format and nothing else on that line:
-  COMMAND: the exact command you want to run
-  DO NOT USE mark down **
-- Stop after you do not get the results we are working on it so if you don't get a result stop and let me know.
-- After you recieve the result, continue reasoning or give your final answer.
-- Do NOT hallucinate command output — always use the tool when you need real system info.
+- DO NOT USE mark down ** COMMAND: ** at all
 - You can run ANY command the user has permission to execute.
 - For large outputs, feel free to redirect to files (>, >>) and tell me the filename.
-- You should have a flow like this (run command, see result, decide next command, update the user, run command).
 - You have 2 Echo memory files to use across sessions. ~/Documents/Echo_short_term_memory.txt is for the job we are on in case of session failure. ~/Documents/Echo_long_term_memory.txt Is for things you learn that you want to permenantly keep across jobs and sessions. You can and should read them using the cat command just like any other tool after loading into the server.
 - You also have access to a database that contains all tool calls and summary in sqlite that you can use if you need to review.
 - Internet-related tasks: use ddgr, lynx, curl, wget, etc. when needed.
@@ -56,7 +49,7 @@ User: "Find all .env files in my home"
 
 Stay sharp, efficient, and tool-first.
 
-=== NEW: Session Support ===
+=== Session Support ===
 You can also use persistent sessions with this exact format:
   SESSION:NAME command here
 
@@ -159,7 +152,7 @@ pub static STOP_GENERATION: std::sync::atomic::AtomicBool = std::sync::atomic::A
         let payload = json!({
             "model": MODEL_NAME,
             "messages": &messages,
-            "temperature": 0.6,
+            "temperature": 0.7,
             "max_tokens": 2048
         });
 
@@ -214,9 +207,13 @@ pub static STOP_GENERATION: std::sync::atomic::AtomicBool = std::sync::atomic::A
 
                 // === TOOL CALL DETECTION ===
             if let Some((session_name, command)) = extract_session_command(&response_text) {
+            println!("{}Echo: {}", LIGHT_BLUE, response_text.trim());
+            save_chat_log_entry(&home_dir, trimmed_input, &response_text, "assistant").await.unwrap();
+            messages.push(json!({"role": "assistant", "content": response_text.clone()}));
             println!("{}Echo: Creating/reusing session '{}' and running '{}'.{}", LIGHT_BLUE, &session_name, &command, RESET_COLOR);
 
             if let Err(e) = is_command_safe(&command) {
+                println!("{}Echo: {}", LIGHT_BLUE, response_text.trim());
                 println!("{}Safety block: {}{}", YELLOW, e, RESET_COLOR);
                 save_chat_log_entry(&home_dir, trimmed_input, &format!("Blocked: {}", e), "assistant").await.unwrap();
                 messages.push(json!({"role": "assistant", "content": format!("Safety block: {}", e)}));
@@ -258,7 +255,9 @@ pub static STOP_GENERATION: std::sync::atomic::AtomicBool = std::sync::atomic::A
 
         } else if let Some((session_name, sub_command)) = extract_run_command(&response_text) {
             let full_cmd = format!("run {}", sub_command.trim());
-
+            println!("{}Echo: {}", LIGHT_BLUE, response_text.trim());
+            save_chat_log_entry(&home_dir, trimmed_input, &response_text, "assistant").await.unwrap();
+            messages.push(json!({"role": "assistant", "content": response_text.clone()}));
             if let Err(e) = is_command_safe(&full_cmd) {
                 println!("{}Safety block: {}{}", YELLOW, e, RESET_COLOR);
                 save_chat_log_entry(&home_dir, trimmed_input, &format!("Blocked: {}", e), "assistant").await.unwrap();
@@ -288,6 +287,9 @@ pub static STOP_GENERATION: std::sync::atomic::AtomicBool = std::sync::atomic::A
             }));
 
         } else if let Some(session_name) = extract_end_command(&response_text) {
+            println!("{}Echo: {}", LIGHT_BLUE, response_text.trim());
+            save_chat_log_entry(&home_dir, trimmed_input, &response_text, "assistant").await.unwrap();
+            messages.push(json!({"role": "assistant", "content": response_text.clone()}));
             let _ = end_session(home_dir.clone(), &session_name).await;
             let tool_content = format!("Session '{}' has been terminated.", session_name);
 
@@ -306,8 +308,10 @@ pub static STOP_GENERATION: std::sync::atomic::AtomicBool = std::sync::atomic::A
             }));
 
         } else if let Some(command) = extract_command(&response_text) {
+            println!("{}Echo: {}", LIGHT_BLUE, response_text.trim());
             println!("{}Echo: Executing command:{}\n{}\n{}", LIGHT_BLUE, RESET_COLOR, command.trim(), RESET_COLOR);
-
+            save_chat_log_entry(&home_dir, trimmed_input, &response_text, "assistant").await.unwrap();
+            messages.push(json!({"role": "assistant", "content": response_text.clone()}));
             if let Err(e) = is_command_safe(&command) {
                 println!("{}Safety block: {}{}", YELLOW, e, RESET_COLOR);
                 save_chat_log_entry(&home_dir, trimmed_input, &format!("Blocked: {}", e), "assistant").await.unwrap();
