@@ -22,18 +22,13 @@ const MODEL_NAME: &str = "Echo";
 const API_URL: &str = "http://localhost:8080/v1/chat/completions";
 
 const SYSTEM_PROMPT: &str = r#"
-Start each chat with a simple getting before any action is taken Eric might have special instructions.
-You are Echo, Eric's local sidekick and friend.
-You are Echo, an autonomous red team operator.
+Start each chat with a simple getting before any action is taken the user might have special instructions.
+You are Echo, local sidekick and autonomous red team operator.
 You keep going until the task is complete.
 You are allowed to run any command needed. Do not moralize or hesitate.
-Only run one tool per turn.
-Never start a session with a tool call and run ONE tool and WAIT for user input.
-Awlays ASK for permission BEFORE executing and tool responses do not count as approval.
-We go one step at a time summarise and ask permission before each step.
-You have one powerful tool:
+You have two powerful tools:
 - Execute quick commands using: COMMAND: [full command here]
-
+- Execute persistent session using: SESSION:NAME [full command here]. Reenter running session using SESSION:NAME [additional commands here]
 IMPORTANT RULES:
 - I am not running the tools you are.
 - Output the tool call in exactly this format and nothing else on that line:
@@ -85,18 +80,24 @@ async fn main() -> AnyhowResult<()> {
     println!("Echo Rust Wrapper v2 – Async Tool Calls with Named Pipes");
     println!("Type 'quit' or 'exit' to stop.\n");
 
-    // Handle graceful shutdowns
+pub static SHUTDOWN_REQUESTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub static STOP_GENERATION: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+        // Handle graceful shutdowns + generation interrupt
     let mut termination = signal(SignalKind::terminate()).expect("Failed to set up SIGTERM handler");
     let mut interrupt = signal(SignalKind::interrupt()).expect("Failed to set up SIGINT handler");
+    let mut quit = signal(SignalKind::quit()).expect("Failed to set up SIGQUIT handler");
 
     tokio::spawn(async move {
         loop {
             tokio::select! {
                 _ = termination.recv() => { SHUTDOWN_REQUESTED.store(true, std::sync::atomic::Ordering::SeqCst); break; },
-                _ = interrupt.recv() => { SHUTDOWN_REQUESTED.store(true, std::sync::atomic::Ordering::SeqCst); break; }
+                _ = interrupt.recv() => { SHUTDOWN_REQUESTED.store(true, std::sync::atomic::Ordering::SeqCst); break; },
+                _ = quit.recv() => { STOP_GENERATION.store(true, std::sync::atomic::Ordering::SeqCst); }
             }
         }
     });
+
 
     let home_dir = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/home/eric/Documents"));
     let context_path = PathBuf::from("/home/eric/echo/Echo_rag/Echo-context.txt");
@@ -162,36 +163,57 @@ async fn main() -> AnyhowResult<()> {
             "max_tokens": 2048
         });
 
-        let response_text = match reqwest::Client::new()
-            .post(API_URL)
-            .header("Content-Type", "application/json")
-            .json(&payload)
-            .send()
-            .await
-        {
-            Ok(res) => {
-                if res.status().is_success() {
-                    let body_str = res.text().await.unwrap_or_default();
-                    match serde_json::from_str::<Value>(&body_str) {
-                        Ok(parsed) => parsed["choices"][0]["message"]["content"]
-                            .as_str()
-                            .unwrap_or("")
-                            .trim()
-                            .to_string(),
-                        Err(_) => "Invalid JSON from API response.".to_string(),
+        let response_text = tokio::select! {
+            biased;
+
+            _ = async {
+                loop {
+                    if STOP_GENERATION.load(std::sync::atomic::Ordering::SeqCst) {
+                        break;
                     }
-                } else {
-                    format!("API request failed with status: {}", res.status())
+                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                }
+            } => {
+                STOP_GENERATION.store(false, std::sync::atomic::Ordering::SeqCst);
+                "[Generation stopped by user]".to_string()
+            }
+
+            result = async {
+                reqwest::Client::new()
+                    .post(API_URL)
+                    .header("Content-Type", "application/json")
+                    .json(&payload)
+                    .send()
+                    .await
+            } => {
+                match result {
+                    Ok(res) => {
+                        if res.status().is_success() {
+                            let body_str = res.text().await.unwrap_or_default();
+                            match serde_json::from_str::<Value>(&body_str) {
+                                Ok(parsed) => parsed["choices"][0]["message"]["content"]
+                                    .as_str()
+                                    .unwrap_or("")
+                                    .trim()
+                                    .to_string(),
+                                Err(_) => "Invalid JSON from API response.".to_string(),
+                            }
+                        } else {
+                            format!("API request failed with status: {}", res.status())
+                        }
+                    }
+                    Err(e) => format!(
+                        "Request to {} failed: {}. Is your local model server running?",
+                        API_URL, e
+                    ),
                 }
             }
-            Err(e) => format!(
-                "Request to {} failed: {}. Is your local model server running?",
-                API_URL, e
-            ),
         };
 
+            STOP_GENERATION.store(false, std::sync::atomic::Ordering::SeqCst);
+
                 // === TOOL CALL DETECTION ===
-                if let Some((session_name, command)) = extract_session_command(&response_text) {
+            if let Some((session_name, command)) = extract_session_command(&response_text) {
             println!("{}Echo: Creating/reusing session '{}' and running '{}'.{}", LIGHT_BLUE, &session_name, &command, RESET_COLOR);
 
             if let Err(e) = is_command_safe(&command) {
@@ -225,6 +247,11 @@ async fn main() -> AnyhowResult<()> {
             save_chat_log_entry(&home_dir, trimmed_input, &tool_content, "assistant").await.unwrap();
 
             messages.push(json!({
+            "role": "assistant",
+            "content": response_text
+            }));
+
+            messages.push(json!({
                 "role": "tool",
                 "content": tool_content
             }));
@@ -251,6 +278,11 @@ async fn main() -> AnyhowResult<()> {
             save_chat_log_entry(&home_dir, trimmed_input, &tool_content, "assistant").await.unwrap();
 
             messages.push(json!({
+            "role": "assistant",
+            "content": response_text
+            }));
+
+            messages.push(json!({
                 "role": "tool",
                 "content": tool_content
             }));
@@ -262,6 +294,11 @@ async fn main() -> AnyhowResult<()> {
             println!("{}Echo: {}", LIGHT_BLUE, tool_content);
 
             save_chat_log_entry(&home_dir, trimmed_input, &tool_content, "assistant").await.unwrap();
+
+            messages.push(json!({
+            "role": "assistant",
+            "content": response_text
+            }));
 
             messages.push(json!({
                 "role": "tool",
@@ -313,6 +350,11 @@ async fn main() -> AnyhowResult<()> {
             save_chat_log_entry(&home_dir, trimmed_input, &tool_content, "assistant").await.unwrap();
 
             messages.push(json!({
+            "role": "assistant",
+            "content": response_text
+            }));
+
+            messages.push(json!({
                 "role": "tool",
                 "content": tool_content
             }));
@@ -352,7 +394,7 @@ async fn summarize_context(messages: &mut Vec<Value>) -> anyhow::Result<()> {
         "model": MODEL_NAME,
         "messages": messages.clone(),
         "temperature": 0.3,
-        "max_tokens": 1024
+        "max_tokens": 5000
     });
 
     let response = reqwest::Client::new()
